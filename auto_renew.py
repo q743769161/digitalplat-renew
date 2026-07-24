@@ -377,7 +377,7 @@ def main():
         f"📊 共检查 {len(domains)} 个域名",
     ]
 
-        if DRY_RUN:
+    if DRY_RUN:
         lines.append(
             "🧪 DRY RUN：不会真正续期"
         )
