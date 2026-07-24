@@ -586,7 +586,7 @@ def main():
         )
 
         # DRY RUN 也验证 Dashboard 登录状态和 CSRF
-             try:
+        try:
             session = create_dashboard_session(
                 remember_token,
                 proxy_list_url,
