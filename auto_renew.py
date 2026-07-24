@@ -377,45 +377,87 @@ def main():
         f"📊 共检查 {len(domains)} 个域名",
     ]
 
-if DRY_RUN:
-    lines.append(
-        "🧪 DRY RUN：不会真正续期"
-    )
-
-    # DRY RUN 也验证 Dashboard 登录状态和 CSRF
-    try:
-        session = create_dashboard_session(
-            remember_token
-        )
-
-        dashboard_domains = get_dashboard_domains(
-            session
-        )
-
+        if DRY_RUN:
         lines.append(
-            "✅ Dashboard 登录验证成功"
+            "🧪 DRY RUN：不会真正续期"
         )
 
-        lines.append(
-            f"✅ Dashboard 可读取 "
-            f"{len(dashboard_domains)} 个域名"
+        # DRY RUN 也验证 Dashboard 登录状态和 CSRF
+        try:
+            session = create_dashboard_session(
+                remember_token
+            )
+
+            dashboard_domains = get_dashboard_domains(
+                session
+            )
+
+            lines.append(
+                "✅ Dashboard 登录验证成功"
+            )
+
+            lines.append(
+                f"✅ Dashboard 可读取 "
+                f"{len(dashboard_domains)} 个域名"
+            )
+
+            lines.append(
+                "✅ CSRF Token 获取成功"
+            )
+
+        except Exception as error:
+            lines.append(
+                "❌ Dashboard 登录验证失败"
+            )
+
+            lines.append(
+                f"原因：{html.escape(str(error))}"
+            )
+
+            lines.append(
+                "⚠️ 请检查 DIGITALPLAT_REMEMBER_TOKEN"
+            )
+
+            telegram(
+                telegram_token,
+                telegram_chat,
+                lines,
+            )
+
+            raise
+
+        if not due:
+            lines.append(
+                "✅ 当前没有进入 "
+                "120 天续期窗口的域名"
+            )
+
+        else:
+            lines.append(
+                f"⚠️ 有 {len(due)} 个域名"
+                "进入续期窗口"
+            )
+
+            for domain, expiry, remaining in due:
+                lines.append(
+                    f"• <code>{html.escape(domain)}</code>"
+                    f" 剩余 {remaining} 天"
+                    f" / 到期 {html.escape(expiry)}"
+                )
+
+        telegram(
+            telegram_token,
+            telegram_chat,
+            lines,
         )
 
-        lines.append(
-            "✅ CSRF Token 获取成功"
-        )
+        return
 
-    except Exception as error:
-        lines.append(
-            "❌ Dashboard 登录验证失败"
-        )
 
+    if not due:
         lines.append(
-            f"原因：{html.escape(str(error))}"
-        )
-
-        lines.append(
-            "⚠️ 请检查 DIGITALPLAT_REMEMBER_TOKEN"
+            "✅ 当前没有进入 "
+            "120 天续期窗口的域名"
         )
 
         telegram(
@@ -424,54 +466,12 @@ if DRY_RUN:
             lines,
         )
 
-        raise
+        return
 
-    if not due:
-        lines.append(
-            "✅ 当前没有进入 "
-            "120 天续期窗口的域名"
-        )
 
-    else:
-        lines.append(
-            f"⚠️ 有 {len(due)} 个域名"
-            "进入续期窗口"
-        )
-
-        for domain, expiry, remaining in due:
-            lines.append(
-                f"• <code>{html.escape(domain)}</code>"
-                f" 剩余 {remaining} 天"
-                f" / 到期 {html.escape(expiry)}"
-            )
-
-    telegram(
-        telegram_token,
-        telegram_chat,
-        lines,
+    session = create_dashboard_session(
+        remember_token
     )
-
-    return
-
-
-if not due:
-    lines.append(
-        "✅ 当前没有进入 "
-        "120 天续期窗口的域名"
-    )
-
-    telegram(
-        telegram_token,
-        telegram_chat,
-        lines,
-    )
-
-    return
-
-
-session = create_dashboard_session(
-    remember_token
-)
 
     success = 0
     failed = 0
