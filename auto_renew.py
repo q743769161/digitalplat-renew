@@ -147,8 +147,160 @@ def get_cookie(session, name):
 
     return values[-1] if values else ""
 
+def get_webshare_proxy(proxy_list_url):
+    response = requests.get(
+        proxy_list_url,
+        timeout=TIMEOUT,
+    )
 
-def create_dashboard_session(remember_token):
+    response.raise_for_status()
+
+    proxy_lines = [
+        line.strip()
+        for line in response.text.splitlines()
+        if line.strip()
+    ]
+
+    if not proxy_lines:
+        raise RuntimeError(
+            "Webshare proxy list is empty"
+        )
+
+    raw_proxy = proxy_lines[0]
+
+    parts = raw_proxy.split(":")
+
+    if len(parts) < 4:
+        raise RuntimeError(
+            "Unexpected Webshare proxy format"
+        )
+
+    host = parts[0]
+    port = parts[1]
+    username = parts[2]
+    password = ":".join(parts[3:])
+
+    proxy_url = (
+        f"http://"
+        f"{quote(username, safe='')}:"
+        f"{quote(password, safe='')}"
+        f"@{host}:{port}"
+    )
+
+    return proxy_url
+
+def create_dashboard_session(
+    remember_token,
+    proxy_list_url,
+):
+    scraper = create_scraper()
+
+    proxy_url = get_webshare_proxy(
+        proxy_list_url
+    )
+
+    scraper.proxies.update({
+        "http": proxy_url,
+        "https": proxy_url,
+    })
+
+    print(
+        "Dashboard proxy: enabled"
+    )
+
+    scraper.cookies.set(
+        "remember_token",
+        remember_token,
+        domain=".digitalplat.org",
+        path="/",
+    )
+
+    headers = {
+        "User-Agent":
+            "Mozilla/5.0 (X11; Linux x86_64) "
+            "AppleWebKit/537.36 "
+            "(KHTML, like Gecko) "
+            "Chrome/125 Safari/537.36",
+        "Accept":
+            "application/json, text/plain, */*",
+    }
+
+    dashboard = scraper.get(
+        f"{PANEL_BASE}/dashboard",
+        headers=headers,
+        timeout=TIMEOUT,
+        allow_redirects=True,
+    )
+
+    print(
+        "Dashboard check:"
+        f" status={dashboard.status_code},"
+        f" final_url={dashboard.url}"
+    )
+
+    has_session = bool(
+        get_cookie(
+            scraper,
+            "panel_session",
+        )
+    )
+
+    has_csrf = bool(
+        get_cookie(
+            scraper,
+            "panel_csrf_token",
+        )
+    )
+
+    print(
+        "Dashboard cookies:"
+        f" panel_session={'yes' if has_session else 'no'},"
+        f" csrf={'yes' if has_csrf else 'no'}"
+    )
+
+    check = scraper.get(
+        f"{PANEL_BASE}/_panel_api/api/me",
+        headers=headers,
+        timeout=TIMEOUT,
+        allow_redirects=False,
+    )
+
+    print(
+        "API /me check:"
+        f" status={check.status_code}"
+    )
+
+    if check.status_code != 200:
+        if check.status_code in (401, 302):
+            raise RuntimeError(
+                "Dashboard authentication failed "
+                f"(HTTP {check.status_code}). "
+                "remember_token may be invalid or expired."
+            )
+
+        if check.status_code == 403:
+            raise RuntimeError(
+                "Dashboard returned HTTP 403 "
+                "while using Webshare proxy."
+            )
+
+        raise RuntimeError(
+            "Dashboard authentication check failed "
+            f"(HTTP {check.status_code})."
+        )
+
+    csrf = get_cookie(
+        scraper,
+        "panel_csrf_token",
+    )
+
+    if not csrf:
+        raise RuntimeError(
+            "Dashboard login succeeded but "
+            "panel_csrf_token was not issued."
+        )
+
+    return scraper
     scraper = create_scraper()
 
     scraper.cookies.set(
@@ -379,6 +531,10 @@ def main():
     telegram_chat = get_env(
         "TELEGRAM_CHAT_ID"
     )
+    
+    proxy_list_url = get_env(
+        "WEBSHARE_PROXY_LIST_URL"
+    )
 
     domains = get_domains(api_key)
 
@@ -431,9 +587,10 @@ def main():
 
         # DRY RUN 也验证 Dashboard 登录状态和 CSRF
         try:
-            session = create_dashboard_session(
-                remember_token
-            )
+        session = create_dashboard_session(
+    remember_token,
+    proxy_list_url,
+)
 
             dashboard_domains = get_dashboard_domains(
                 session
@@ -517,8 +674,9 @@ def main():
 
 
     session = create_dashboard_session(
-        remember_token
-    )
+    remember_token,
+    proxy_list_url,
+)
 
     success = 0
     failed = 0
