@@ -48,7 +48,17 @@ def get_domains(api_key):
         timeout=TIMEOUT,
     )
 
-    response.raise_for_status()
+if not response.ok:
+    try:
+        error_body = response.text[:300]
+    except Exception:
+        error_body = "Unable to read response"
+
+    raise RuntimeError(
+        f"Webshare proxy list download failed "
+        f"(HTTP {response.status_code}): "
+        f"{error_body}"
+    )
     data = response.json()
 
     if isinstance(data, list):
