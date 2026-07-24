@@ -296,8 +296,7 @@ def telegram(token, chat_id, lines):
     text = "\n".join(lines)
 
     response = requests.post(
-        f"https://api.telegram.org/"
-        f"bot{token}/sendMessage",
+        f"https://api.telegram.org/bot{token}/sendMessage",
         data={
             "chat_id": chat_id,
             "parse_mode": "HTML",
@@ -306,7 +305,15 @@ def telegram(token, chat_id, lines):
         timeout=TIMEOUT,
     )
 
-    response.raise_for_status()
+    if not response.ok:
+        try:
+            error = response.json()
+        except Exception:
+            error = response.text[:500]
+
+        raise RuntimeError(
+            f"Telegram send failed: HTTP {response.status_code}: {error}"
+        )
 
 
 def main():
