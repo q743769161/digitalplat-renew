@@ -154,7 +154,7 @@ def create_dashboard_session(remember_token):
     scraper.cookies.set(
         "remember_token",
         remember_token,
-        domain="digitalplat.org",
+        domain=".digitalplat.org",
         path="/",
     )
 
@@ -164,25 +164,72 @@ def create_dashboard_session(remember_token):
             "AppleWebKit/537.36 "
             "(KHTML, like Gecko) "
             "Chrome/125 Safari/537.36",
-        "Accept": "application/json, text/plain, */*",
+        "Accept":
+            "application/json, text/plain, */*",
     }
 
-    scraper.get(
+    dashboard = scraper.get(
         f"{PANEL_BASE}/dashboard",
         headers=headers,
         timeout=TIMEOUT,
+        allow_redirects=True,
+    )
+
+    print(
+        "Dashboard check:"
+        f" status={dashboard.status_code},"
+        f" final_url={dashboard.url}"
+    )
+
+    has_session = bool(
+        get_cookie(
+            scraper,
+            "panel_session",
+        )
+    )
+
+    has_csrf = bool(
+        get_cookie(
+            scraper,
+            "panel_csrf_token",
+        )
+    )
+
+    print(
+        "Dashboard cookies:"
+        f" panel_session={'yes' if has_session else 'no'},"
+        f" csrf={'yes' if has_csrf else 'no'}"
     )
 
     check = scraper.get(
         f"{PANEL_BASE}/_panel_api/api/me",
         headers=headers,
         timeout=TIMEOUT,
+        allow_redirects=False,
+    )
+
+    print(
+        "API /me check:"
+        f" status={check.status_code}"
     )
 
     if check.status_code != 200:
+        if check.status_code in (401, 302):
+            raise RuntimeError(
+                "Dashboard authentication failed "
+                f"(HTTP {check.status_code}). "
+                "remember_token may be invalid or expired."
+            )
+
+        if check.status_code == 403:
+            raise RuntimeError(
+                "Dashboard returned HTTP 403. "
+                "Possible Cloudflare or access restriction."
+            )
+
         raise RuntimeError(
-            "Dashboard session expired. "
-            "Please update DIGITALPLAT_REMEMBER_TOKEN."
+            "Dashboard authentication check failed "
+            f"(HTTP {check.status_code})."
         )
 
     csrf = get_cookie(
@@ -192,11 +239,11 @@ def create_dashboard_session(remember_token):
 
     if not csrf:
         raise RuntimeError(
-            "Unable to obtain panel_csrf_token"
+            "Dashboard login succeeded but "
+            "panel_csrf_token was not issued."
         )
 
     return scraper
-
 
 def renew_domain(session, domain):
     csrf = get_cookie(
