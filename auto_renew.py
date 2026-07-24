@@ -48,17 +48,8 @@ def get_domains(api_key):
         timeout=TIMEOUT,
     )
 
-if not response.ok:
-    try:
-        error_body = response.text[:300]
-    except Exception:
-        error_body = "Unable to read response"
+    response.raise_for_status()
 
-    raise RuntimeError(
-        f"Webshare proxy list download failed "
-        f"(HTTP {response.status_code}): "
-        f"{error_body}"
-    )
     data = response.json()
 
     if isinstance(data, list):
@@ -69,7 +60,9 @@ if not response.ok:
             if isinstance(data.get(key), list):
                 return data[key]
 
-    raise RuntimeError("Unknown domain API response format")
+    raise RuntimeError(
+        "Unknown domain API response format"
+    )
 
 
 def get_domain_name(item):
@@ -163,7 +156,17 @@ def get_webshare_proxy(proxy_list_url):
         timeout=TIMEOUT,
     )
 
-    response.raise_for_status()
+    if not response.ok:
+        try:
+            error_body = response.text[:300]
+        except Exception:
+            error_body = "Unable to read response"
+
+        raise RuntimeError(
+            f"Webshare proxy list download failed "
+            f"(HTTP {response.status_code}): "
+            f"{error_body}"
+        )
 
     proxy_lines = [
         line.strip()
