@@ -586,11 +586,11 @@ def main():
         )
 
         # DRY RUN 也验证 Dashboard 登录状态和 CSRF
-        try:
-        session = create_dashboard_session(
-    remember_token,
-    proxy_list_url,
-)
+             try:
+            session = create_dashboard_session(
+                remember_token,
+                proxy_list_url,
+            )
 
             dashboard_domains = get_dashboard_domains(
                 session
@@ -673,10 +673,10 @@ def main():
         return
 
 
-    session = create_dashboard_session(
-    remember_token,
-    proxy_list_url,
-)
+        session = create_dashboard_session(
+        remember_token,
+        proxy_list_url,
+    )
 
     success = 0
     failed = 0
