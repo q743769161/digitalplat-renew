@@ -41,6 +41,7 @@ jobs:
           DIGITALPLAT_REMEMBER_TOKEN: ${{ secrets.DIGITALPLAT_REMEMBER_TOKEN }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          WEBSHARE_PROXY_LIST_URL: ${{ secrets.WEBSHARE_PROXY_LIST_URL }}
 
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || github.event_name == 'schedule' }}
 
