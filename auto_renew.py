@@ -6,13 +6,13 @@ import os
 import sys
 import time
 from datetime import datetime, timezone
-from urllib.parse import quote
+from urllib.parse import quote, urljoin
 
 import cloudscraper
 import requests
 
 API_BASE = "https://domain-api.digitalplat.org/api/v1"
-PANEL_BASE = "https://dash.domain.digitalplat.org"
+PANEL_BASE = "https://dashboard.digitalplat.org"
 
 RENEWAL_WINDOW_DAYS = 120
 DRY_RUN = os.getenv("DRY_RUN", "true").lower() == "true"
@@ -283,6 +283,37 @@ def create_dashboard_session(
         f" status={check.status_code}"
     )
 
+    # The panel host has moved before (dash -> dashboard, HTTP 308).
+    # Follow same-host/cross-host redirects explicitly instead of
+    # failing on the redirect itself, and log where it goes.
+    hops = 0
+    while (
+        check.status_code in (301, 302, 307, 308)
+        and check.headers.get("Location")
+        and hops < 3
+    ):
+        location = urljoin(
+            f"{PANEL_BASE}/_panel_api/api/me",
+            check.headers["Location"],
+        )
+        print(
+            "API /me redirect:"
+            f" status={check.status_code},"
+            f" location={location}"
+        )
+        check = scraper.get(
+            location,
+            headers=headers,
+            timeout=TIMEOUT,
+            allow_redirects=False,
+        )
+        print(
+            "API /me check:"
+            f" status={check.status_code},"
+            f" final_url={check.url}"
+        )
+        hops += 1
+
     if check.status_code != 200:
         if check.status_code in (401, 302):
             raise RuntimeError(
@@ -300,12 +331,37 @@ def create_dashboard_session(
         raise RuntimeError(
             "Dashboard authentication check failed "
             f"(HTTP {check.status_code})."
+            f" location={check.headers.get('Location', '')}"
         )
 
     csrf = get_cookie(
         scraper,
         "panel_csrf_token",
     )
+
+    if not csrf:
+        try:
+            csrf_resp = scraper.get(
+                f"{PANEL_BASE}/_panel_api/api/security/csrf",
+                headers=headers,
+                timeout=TIMEOUT,
+                allow_redirects=True,
+            )
+            print(
+                "CSRF endpoint check:"
+                f" status={csrf_resp.status_code}"
+            )
+            token = str(csrf_resp.json().get("csrf_token") or "")
+            if token:
+                scraper.cookies.set(
+                    "panel_csrf_token",
+                    token,
+                    domain=".digitalplat.org",
+                    path="/",
+                )
+                csrf = token
+        except Exception as error:
+            print(f"CSRF endpoint check failed: {error}")
 
     if not csrf:
         raise RuntimeError(
@@ -685,8 +741,7 @@ def main():
 
         return
 
-
-        session = create_dashboard_session(
+    session = create_dashboard_session(
         remember_token,
         proxy_list_url,
     )
