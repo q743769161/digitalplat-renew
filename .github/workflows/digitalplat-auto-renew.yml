@@ -38,6 +38,7 @@ jobs:
           echo "skip=false" >> "$GITHUB_OUTPUT"
 
       - name: Run renewal check
+        id: renew
         if: steps.check_env.outputs.skip != 'true'
         env:
           DIGITALPLAT_API_TOKEN: ${{ secrets.DIGITALPLAT_API_KEY }}  # mapped from existing secret DIGITALPLAT_API_KEY (same DigitalPlat API key)
@@ -50,6 +51,7 @@ jobs:
           python scripts/digitalplat_auto_renew.py --state state/domains-state.json
 
       - name: Commit updated renewal state
+        id: commit_state
         if: steps.check_env.outputs.skip != 'true'
         run: |
           if [ -z "$(git status --porcelain -- state/domains-state.json)" ]; then
@@ -62,3 +64,15 @@ jobs:
           git commit -m "chore: update DigitalPlat renewal state [skip ci]"
           git pull --rebase origin main || true
           git push
+
+      - name: Notify Telegram
+        if: always()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          RENEW_OUTCOME: ${{ steps.renew.outcome }}
+          COMMIT_OUTCOME: ${{ steps.commit_state.outcome }}
+          RUN_NUMBER: ${{ github.run_number }}
+          EVENT_NAME: ${{ github.event_name }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: bash scripts/notify_telegram.sh
