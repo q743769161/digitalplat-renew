@@ -272,14 +272,14 @@ def create_dashboard_session(
     )
 
     check = scraper.get(
-        f"{PANEL_BASE}/_panel_api/api/me",
+        f"{PANEL_BASE}/_panel_api/api/domains",
         headers=headers,
         timeout=TIMEOUT,
         allow_redirects=False,
     )
 
     print(
-        "API /me check:"
+        "API /domains check:"
         f" status={check.status_code}"
     )
 
@@ -293,11 +293,11 @@ def create_dashboard_session(
         and hops < 3
     ):
         location = urljoin(
-            f"{PANEL_BASE}/_panel_api/api/me",
+            f"{PANEL_BASE}/_panel_api/api/domains",
             check.headers["Location"],
         )
         print(
-            "API /me redirect:"
+            "API /domains redirect:"
             f" status={check.status_code},"
             f" location={location}"
         )
@@ -308,7 +308,7 @@ def create_dashboard_session(
             allow_redirects=False,
         )
         print(
-            "API /me check:"
+            "API /domains check:"
             f" status={check.status_code},"
             f" final_url={check.url}"
         )
