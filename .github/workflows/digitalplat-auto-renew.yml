@@ -1,0 +1,64 @@
+name: DigitalPlat Auto Renew
+
+on:
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  renew:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check configuration
+        id: check_env
+        run: |
+          if [ -z "${{ secrets.DIGITALPLAT_API_KEY }}" ]; then
+            if [ "${{ github.event_name }}" = "schedule" ]; then
+              echo "DIGITALPLAT_API_KEY secret is not set. Skipping scheduled renewal check."
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            else
+              echo "::error::Missing DIGITALPLAT_API_KEY secret! Please add it in repository Settings -> Secrets and variables -> Actions."
+              exit 1
+            fi
+          fi
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+      - name: Run renewal check
+        if: steps.check_env.outputs.skip != 'true'
+        env:
+          DIGITALPLAT_API_TOKEN: ${{ secrets.DIGITALPLAT_API_KEY }}  # mapped from existing secret DIGITALPLAT_API_KEY (same DigitalPlat API key)
+          DIGITALPLAT_DOMAINS: ${{ vars.DIGITALPLAT_DOMAINS }}
+          DIGITALPLAT_API_BASE: ${{ vars.DIGITALPLAT_API_BASE }}
+          DIGITALPLAT_RENEW_BEFORE_DAYS: ${{ vars.DIGITALPLAT_RENEW_BEFORE_DAYS }}
+          DIGITALPLAT_RENEWAL_TYPE: ${{ vars.DIGITALPLAT_RENEWAL_TYPE }}
+          DIGITALPLAT_RENEWAL_YEARS: ${{ vars.DIGITALPLAT_RENEWAL_YEARS }}
+        run: |
+          python scripts/digitalplat_auto_renew.py --state state/domains-state.json
+
+      - name: Commit updated renewal state
+        if: steps.check_env.outputs.skip != 'true'
+        run: |
+          if [ -z "$(git status --porcelain -- state/domains-state.json)" ]; then
+            echo "No state changes to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add state/domains-state.json
+          git commit -m "chore: update DigitalPlat renewal state [skip ci]"
+          git pull --rebase origin main || true
+          git push
