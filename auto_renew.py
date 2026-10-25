@@ -271,6 +271,11 @@ def create_dashboard_session(
         f" csrf={'yes' if has_csrf else 'no'}"
     )
 
+    print(
+        "Dashboard cookie names:"
+        f" {sorted({c.name for c in scraper.cookies})}"
+    )
+
     check = scraper.get(
         f"{PANEL_BASE}/_panel_api/api/domains",
         headers=headers,
@@ -314,7 +319,54 @@ def create_dashboard_session(
         )
         hops += 1
 
+    # Diagnostic retry: the user's browser session works directly, but
+    # this runner goes through a shared Webshare proxy. If the proxy
+    # path returns 401, retry once without any proxy before giving up.
+    if check.status_code == 401:
+        print("API /domains via proxy failed 401, retrying direct")
+        scraper.proxies.clear()
+        scraper.trust_env = False
+        scraper.cookies.clear()
+        scraper.cookies.set(
+            "remember_token",
+            remember_token,
+            domain=".digitalplat.org",
+            path="/",
+        )
+        dashboard_direct = scraper.get(
+            f"{PANEL_BASE}/dashboard",
+            headers=headers,
+            timeout=TIMEOUT,
+            allow_redirects=True,
+        )
+        print(
+            "Dashboard check (direct):"
+            f" status={dashboard_direct.status_code},"
+            f" final_url={dashboard_direct.url}"
+        )
+        print(
+            "Dashboard cookie names (direct):"
+            f" {sorted({c.name for c in scraper.cookies})}"
+        )
+        check = scraper.get(
+            f"{PANEL_BASE}/_panel_api/api/domains",
+            headers=headers,
+            timeout=TIMEOUT,
+            allow_redirects=False,
+        )
+        print(
+            "API /domains check (direct):"
+            f" status={check.status_code}"
+        )
+
     if check.status_code != 200:
+        try:
+            print(
+                "API /domains body:"
+                f" {check.text[:300].replace(chr(10), ' ')}"
+            )
+        except Exception:
+            pass
         if check.status_code in (401, 302):
             raise RuntimeError(
                 "Dashboard authentication failed "
