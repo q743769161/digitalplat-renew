@@ -6,7 +6,7 @@
       "renew_before_days": 120,
       "status": "ok",
       "last_action": "permanent",
-      "checked_at": "2026-10-25T07:54:40+00:00"
+      "checked_at": "2026-10-25T08:02:08+00:00"
     },
     "hallocheung.qzz.io": {
       "expiry_date": "2027-06-16",
@@ -14,7 +14,7 @@
       "renew_before_days": 120,
       "status": "ok",
       "last_action": "permanent",
-      "checked_at": "2026-10-25T07:54:40+00:00"
+      "checked_at": "2026-10-25T08:02:08+00:00"
     }
   }
 }
