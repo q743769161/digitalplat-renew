@@ -2,19 +2,19 @@
   "domains": {
     "hallocheung.dpdns.org": {
       "expiry_date": "2027-06-16",
-      "days_remaining": 234,
+      "days_remaining": 233,
       "renew_before_days": 120,
       "status": "ok",
       "last_action": "permanent",
-      "checked_at": "2026-10-25T08:02:08+00:00"
+      "checked_at": "2026-10-26T10:08:58+00:00"
     },
     "hallocheung.qzz.io": {
       "expiry_date": "2027-06-16",
-      "days_remaining": 234,
+      "days_remaining": 233,
       "renew_before_days": 120,
       "status": "ok",
       "last_action": "permanent",
-      "checked_at": "2026-10-25T08:02:08+00:00"
+      "checked_at": "2026-10-26T10:08:58+00:00"
     }
   }
 }
